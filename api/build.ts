@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { AIService } from '../src/aiService';
+import { OpenRouterService } from '../src/openRouterService';
 import { PartsDatabase } from '../src/partsDatabaseServerless';
 import { PartSelector } from '../src/partSelector';
 import { CodeExecutor } from '../src/codeExecutorServerless';
@@ -8,6 +9,7 @@ let isInitialized = false;
 let database: PartsDatabase;
 let partSelector: PartSelector;
 let aiService: AIService;
+let openRouterService: OpenRouterService;
 let codeExecutor: CodeExecutor;
 
 async function initialize() {
@@ -16,6 +18,7 @@ async function initialize() {
     await database.loadParts('./parts.csv');
     partSelector = new PartSelector(database);
     aiService = new AIService();
+    openRouterService = new OpenRouterService();
     codeExecutor = new CodeExecutor('./output');
     isInitialized = true;
   }
@@ -69,7 +72,7 @@ export default async function handler(
     // Initialize services if not already done
     await initialize();
 
-    const { prompt, model } = req.body;
+    const { prompt, model, provider } = req.body;
 
     if (!prompt || prompt.trim().length === 0) {
       return res.status(400).json({
@@ -78,19 +81,38 @@ export default async function handler(
       });
     }
 
-    console.log(`Building model from prompt: ${prompt}`);
+    console.log(`Building model from prompt: ${prompt} (provider: ${provider || 'snowflake'})`);
 
     // Get relevant parts for the prompt
     const relevantParts = partSelector.getRelevantParts(prompt);
     const builderAPI = partSelector.getBuilderAPIDocumentation();
 
-    // Generate code from AI (model parameter can override default)
-    const generatedCode = await aiService.generateBuildingCode(
-      prompt,
-      relevantParts,
-      builderAPI,
-      model
-    );
+    // Choose AI provider
+    let generatedCode: string;
+
+    if (provider === 'openrouter') {
+      // Use OpenRouter
+      if (!openRouterService.isConfigured()) {
+        return res.status(500).json({
+          success: false,
+          error: 'OpenRouter is not configured. Please set OPEN_ROUTER_KEY environment variable.'
+        });
+      }
+      generatedCode = await openRouterService.generateBuildingCode(
+        prompt,
+        relevantParts,
+        builderAPI,
+        model
+      );
+    } else {
+      // Default to Snowflake
+      generatedCode = await aiService.generateBuildingCode(
+        prompt,
+        relevantParts,
+        builderAPI,
+        model
+      );
+    }
 
     // Validate the code
     if (!codeExecutor.validateCode(generatedCode)) {
