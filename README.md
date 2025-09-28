@@ -13,6 +13,14 @@ A serverless API service that generates LEGO models using AI (Snowflake Cortex).
 
 ### POST /api/build
 
+**Authentication Required**: Include your API key in the `X-API-Key` header.
+
+Request headers:
+```
+X-API-Key: your-api-key-here
+Content-Type: application/json
+```
+
 Request body:
 ```json
 {
@@ -32,6 +40,11 @@ Response:
 }
 ```
 
+Error responses:
+- `401`: Invalid or missing API key
+- `400`: Invalid request (missing prompt)
+- `500`: Server error
+
 ## Deployment to Vercel
 
 1. Install Vercel CLI:
@@ -44,6 +57,7 @@ npm i -g vercel
 vercel env add SNOWFLAKE_PAT
 vercel env add ACCOUNT_IDENTIFIER
 vercel env add REBRICKABLE_API
+vercel env add API_KEY
 ```
 
 3. Deploy to production:
@@ -63,6 +77,7 @@ npm install
 SNOWFLAKE_PAT=your_snowflake_pat
 ACCOUNT_IDENTIFIER=your_account_identifier
 REBRICKABLE_API=your_rebrickable_api_key
+API_KEY=your_api_key_here
 ```
 
 3. Run locally with Vercel CLI:
@@ -81,7 +96,29 @@ Or test with curl:
 ```bash
 curl -X POST http://localhost:3000/api/build \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key-here" \
   -d '{"prompt": "a simple house"}'
+```
+
+## Frontend Integration
+
+To use this API in your frontend:
+
+```javascript
+const response = await fetch('https://your-api-url/api/build', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key-here'
+  },
+  body: JSON.stringify({
+    prompt: 'a red sports car',
+    model: 'claude-3-5-sonnet' // optional
+  })
+});
+
+const data = await response.json();
+console.log(data.ldrContent); // The LDraw file content
 ```
 
 ## Project Structure

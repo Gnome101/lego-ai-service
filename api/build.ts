@@ -31,7 +31,7 @@ export default async function handler(
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-API-Key'
   );
 
   if (req.method === 'OPTIONS') {
@@ -43,6 +43,25 @@ export default async function handler(
     return res.status(405).json({
       success: false,
       error: 'Method not allowed. Use POST.'
+    });
+  }
+
+  // Check API key
+  const apiKey = req.headers['x-api-key'] as string;
+  const validApiKey = process.env.API_KEY;
+
+  if (!validApiKey) {
+    console.error('API_KEY not configured in environment variables');
+    return res.status(500).json({
+      success: false,
+      error: 'Server configuration error'
+    });
+  }
+
+  if (!apiKey || apiKey !== validApiKey) {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid or missing API key. Please provide a valid X-API-Key header.'
     });
   }
 
