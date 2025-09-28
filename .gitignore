@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.production.local
+.env.development.local
+.env.test.local
+.env*.local
+
+# Production
+dist/
+build/
+
+# Vercel
+.vercel/
+.vercel.json.backup
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+*.log
+
+# Output files
+output/
+*.ldr
