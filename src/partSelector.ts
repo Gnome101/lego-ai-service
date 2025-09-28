@@ -1,4 +1,4 @@
-import { Part } from './partsDatabase';
+import { Part } from './partsDatabaseServerless';
 
 interface IPartsDatabase {
   searchParts(keywords: string[]): Part[];

@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { AIService } from '../src/aiService';
-import { OpenRouterService } from '../src/openRouterService';
+import { ModelService } from '../src/modelService';
 import { PartsDatabase } from '../src/partsDatabaseServerless';
 import { PartSelector } from '../src/partSelector';
 import { CodeExecutor } from '../src/codeExecutorServerless';
@@ -8,8 +7,7 @@ import { CodeExecutor } from '../src/codeExecutorServerless';
 let isInitialized = false;
 let database: PartsDatabase;
 let partSelector: PartSelector;
-let aiService: AIService;
-let openRouterService: OpenRouterService;
+let modelService: ModelService;
 let codeExecutor: CodeExecutor;
 
 async function initialize() {
@@ -17,8 +15,7 @@ async function initialize() {
     database = new PartsDatabase();
     await database.loadParts('./parts.csv');
     partSelector = new PartSelector(database);
-    aiService = new AIService();
-    openRouterService = new OpenRouterService();
+    modelService = new ModelService();
     codeExecutor = new CodeExecutor('./output');
     isInitialized = true;
   }
@@ -72,7 +69,7 @@ export default async function handler(
     // Initialize services if not already done
     await initialize();
 
-    const { prompt, model, provider } = req.body;
+    const { prompt, model } = req.body;
 
     if (!prompt || prompt.trim().length === 0) {
       return res.status(400).json({
@@ -81,38 +78,24 @@ export default async function handler(
       });
     }
 
-    console.log(`Building model from prompt: ${prompt} (provider: ${provider || 'snowflake'})`);
+    console.log(`Building model from prompt: ${prompt} (model: ${model || 'claude-3-5-sonnet'})`);
 
     // Get relevant parts for the prompt
     const relevantParts = partSelector.getRelevantParts(prompt);
     const builderAPI = partSelector.getBuilderAPIDocumentation();
 
-    // Choose AI provider
-    let generatedCode: string;
+    // Generate code using unified model service (automatically detects provider)
+    const generatedCode = await modelService.generateBuildingCode(
+      prompt,
+      relevantParts,
+      builderAPI,
+      model
+    );
 
-    if (provider === 'openrouter') {
-      // Use OpenRouter
-      if (!openRouterService.isConfigured()) {
-        return res.status(500).json({
-          success: false,
-          error: 'OpenRouter is not configured. Please set OPEN_ROUTER_KEY environment variable.'
-        });
-      }
-      generatedCode = await openRouterService.generateBuildingCode(
-        prompt,
-        relevantParts,
-        builderAPI,
-        model
-      );
-    } else {
-      // Default to Snowflake
-      generatedCode = await aiService.generateBuildingCode(
-        prompt,
-        relevantParts,
-        builderAPI,
-        model
-      );
-    }
+    // Log the generated code for review
+    console.log('\n=== Generated Code ===');
+    console.log(generatedCode);
+    console.log('=== End Generated Code ===\n');
 
     // Validate the code
     if (!codeExecutor.validateCode(generatedCode)) {

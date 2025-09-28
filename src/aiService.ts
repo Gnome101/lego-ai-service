@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as dotenv from 'dotenv';
 
+const STEP_BY_STEP_CAR_EXAMPLE = "../examples/step-by-step-car.ts"
 dotenv.config();
 
 interface Message {
@@ -44,21 +45,30 @@ export class AIService {
     model?: string
   ): Promise<string> {
     const systemPrompt = `You are a LEGO building assistant that generates TypeScript code to create LEGO models using the LDrawBuilder API.
-
+DO NOT ADD ANY IMPORTS
 ${builderAPI}
 
 Available parts (partial list):
 ${availableParts}
+
+Here's an example of a well-structured build with step-by-step instructions:
+${STEP_BY_STEP_CAR_EXAMPLE}
 
 Important guidelines:
 1. Generate ONLY executable TypeScript code, no explanations
 2. Use the builder methods to place parts at appropriate coordinates
 3. Start with "const builder = new LDrawBuilder();"
 4. End with "builder.save('model.ldr');"
-5. Use proper LDraw units (1 stud = 20 LDU, 1 plate height = 8 LDU)
-6. Place parts logically to create a recognizable structure
-7. Use appropriate colors from the Colors object
-8. Return ONLY the code, no markdown or explanations`;
+5. Use proper LDraw units (1 stud = 20 LDU, 1 plate height = 8 LDU, 1 brick height = 24 LDU)
+DO NOT MAKE A FLOOR or GROUND
+6. CRITICAL: In LDraw, the Y-axis is INVERTED - negative Y values go UP, positive Y values go DOWN
+   - Parts stacked above should have NEGATIVE Y values (e.g., -8, -16, -24, -32, etc.)
+   - Example: A brick on top of a base plate would be at Y = -24
+7. Place parts logically to create a recognizable structure
+8. Use appropriate colors from the Colors object
+9. Use for loops and arrays for repetitive elements (like wheels, windows, patterns)
+10. Use builder.addStep() to separate major building phases for clarity
+11. Return ONLY the code, no markdown or explanations`;
 
     const messages: Message[] = [
       { role: 'system', content: systemPrompt },

@@ -13,8 +13,15 @@ interface PartPlacement {
   partName: string;
 }
 
+interface StepMarker {
+  lineType: 0;
+  command: 'STEP';
+}
+
+type BuildElement = PartPlacement | StepMarker;
+
 export class LDrawBuilder {
-  private parts: PartPlacement[] = [];
+  private elements: BuildElement[] = [];
   private currentColor: number = 16; // Default color (main color)
   private modelName: string = 'Untitled Model';
   private author: string = 'AI Builder';
@@ -40,6 +47,22 @@ export class LDrawBuilder {
     return this;
   }
 
+  // Add a step marker to separate building steps
+  addStep(): this {
+    // Only add step if there are parts since the last step
+    if (this.elements.length > 0) {
+      const lastElement = this.elements[this.elements.length - 1];
+      // Don't add duplicate steps
+      if (!('command' in lastElement) || lastElement.command !== 'STEP') {
+        this.elements.push({
+          lineType: 0,
+          command: 'STEP'
+        });
+      }
+    }
+    return this;
+  }
+
   // Add a part with full transformation matrix control
   addPart(
     partNum: string,
@@ -49,14 +72,16 @@ export class LDrawBuilder {
     d: number = 0, e: number = 1, f: number = 0,
     g: number = 0, h: number = 0, i: number = 1
   ): this {
-    this.parts.push({
+    // Ensure we don't double-add .dat extension
+    const partName = partNum.endsWith('.dat') ? partNum : `${partNum}.dat`;
+    this.elements.push({
       lineType: 1,
       color,
       x, y, z,
       a, b, c,
       d, e, f,
       g, h, i,
-      partName: `${partNum}.dat`
+      partName
     });
     return this;
   }
@@ -109,14 +134,25 @@ export class LDrawBuilder {
     lines.push('0 BFC CERTIFY CCW');
     lines.push('');
 
-    // Add all parts
-    for (const part of this.parts) {
-      const line = `1 ${part.color} ${part.x} ${part.y} ${part.z} ${part.a} ${part.b} ${part.c} ${part.d} ${part.e} ${part.f} ${part.g} ${part.h} ${part.i} ${part.partName}`;
-      lines.push(line);
+    // Add all elements (parts and steps)
+    for (const element of this.elements) {
+      if ('command' in element && element.command === 'STEP') {
+        // Add step marker
+        lines.push('0 STEP');
+        lines.push(''); // Add blank line after step for readability
+      } else if ('partName' in element) {
+        // Add part
+        const part = element as PartPlacement;
+        const line = `1 ${part.color} ${part.x} ${part.y} ${part.z} ${part.a} ${part.b} ${part.c} ${part.d} ${part.e} ${part.f} ${part.g} ${part.h} ${part.i} ${part.partName}`;
+        lines.push(line);
+      }
     }
 
-    // Add step command at the end
-    lines.push('0 STEP');
+    // Add final step command if not already present
+    const lastElement = this.elements[this.elements.length - 1];
+    if (!lastElement || !('command' in lastElement) || lastElement.command !== 'STEP') {
+      lines.push('0 STEP');
+    }
     lines.push('');
 
     return lines.join('\n');
@@ -132,13 +168,13 @@ export class LDrawBuilder {
 
   // Clear all parts
   clear(): this {
-    this.parts = [];
+    this.elements = [];
     return this;
   }
 
-  // Get part count
+  // Get part count (excludes step markers)
   getPartCount(): number {
-    return this.parts.length;
+    return this.elements.filter(el => 'partName' in el).length;
   }
 
   // Get content without saving to file
